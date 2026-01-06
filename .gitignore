@@ -47,3 +47,35 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# ---- Quarto render artifacts ----
+*_files/
+*.html
+*.pdf
+*.docx
+*.pptx
+*.epub
+
+# Quarto / Pandoc intermediates
+.quarto/
+.quarto_cache/
+.quarto_ipynb/
+*_cache/
+*_freeze/
+
+# RevealJS / presentation outputs
+revealjs/
+slides/
+presentation/
+
+# LaTeX / PDF build junk
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
