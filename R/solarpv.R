@@ -15,6 +15,7 @@
 
 solarpv <- function(area, eff = 0.8, PR = 0.75, solar, clr = "blue", eunits = "kJ", etype = "both", g = TRUE, ethresh = 10000) {
   # calculate total daily energy - depending on whether array can use diffuse
+  library(tidyverse)
   if (etype == "diffuse") {
     solar$total <- solar$Kdown_diffuse
   } else {
@@ -66,3 +67,34 @@ solarpv <- function(area, eff = 0.8, PR = 0.75, solar, clr = "blue", eunits = "k
 
   return(list(annual = annualsolar[, c("year", "elect")], mean = mean(annualsolar$elect)))
 }
+
+load(here("Data/sierraczosolar_clean.rda"))
+
+ethresh <- rnorm(mean = 10000, sd = .15*10000, n = 20)
+
+ethresh_vals <- pmax(0, ethresh)
+
+eff_vals <- rnorm(20, mean = 0.6, sd = 0.1)
+
+params <- tibble(
+  sim = 1:20,
+  eff = eff_vals,
+  ethresh = ethresh_vals
+)
+
+results <- params %>%
+  mutate(
+    model = pmap(
+      list(eff = eff, ethresh = ethresh),
+      ~ solarpv(
+        area = 0.1,
+        solar = sierraczosolar,
+        clr = "green",
+        eunit = "kWhr",
+        g = FALSE,
+        etype = "direct",
+        eff = ..1,
+        ethresh = ..2
+      )
+    )
+  )
