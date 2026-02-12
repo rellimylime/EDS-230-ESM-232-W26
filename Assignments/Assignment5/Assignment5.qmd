@@ -1,0 +1,124 @@
+---
+title: "Sobol Sensitivity Analysis Assignment"
+author: "Emily Miller"
+date: today
+format: pdf
+---
+
+# Part I: Paper Review
+
+## Uranium in Groundwater Model
+
+In the uranium paper, the sensitivity analysis revealed that uranium concentration accounts for 69-78% of output variance, suggesting that water quality monitoring should be the focus of management resources. Also, since body weight contributes <1% to risk variance, assessments should use standard default values rather than conducting demographic surveys of the exposed population. Resources should instead be concentrated on monitoring groundwater uranium levels, particularly in the 17% of locations where levels exceed WHO guidelines. We can also note that uncertainty in uranium concentration will propagate most strongly to risk estimates, so investment in high quality concentration analysis will have the highest payoff for improving risk assessment accuracy.
+
+# Part II: Atmospheric Conductance Sensitivity Analysis
+
+## Setup
+```{r}
+#| warning: false
+#| message: false
+
+library(sensitivity)
+library(tidyverse)
+library(purrr)
+
+source(here::here("R/Catm.R"))
+
+# Generate parameter sets using sobolSalt
+
+# Set sample size
+np <- 1000
+
+# Generate first set of parameters (X1)
+
+# Windspeed: higher and more variable than class (mean=300, sd=50)
+# Height: shorter vegetation (3.5-5.5m vs 9.5-10.5m in class)
+k_o <- rnorm(mean = 0.1, sd = 0.1 * 0.01, n = np)  # 1% SD
+k_d <- rnorm(mean = 0.7, sd = 0.7 * 0.01, n = np)  # 1% SD
+v <- rnorm(mean = 300, sd = 50, n = np)            # Higher, more variable
+height <- runif(min = 3.5, max = 5.5, n = np)      # Shorter vegetation
+
+X1 <- cbind.data.frame(k_o, k_d, v, height)
+
+# Generate second set of parameters (X2) 
+k_o <- rnorm(mean = 0.1, sd = 0.1 * 0.01, n = np)
+k_d <- rnorm(mean = 0.7, sd = 0.7 * 0.01, n = np)
+v <- rnorm(mean = 300, sd = 50, n = np)
+height <- runif(min = 3.5, max = 5.5, n = np)
+
+X2 <- cbind.data.frame(k_o, k_d, v, height)
+
+# Create Sobol object
+sens_Catm_Sobol <- sobolSalt(model = NULL, X1, X2, nboot = 100)
+```
+
+```{r}
+# Run model for all parameter sets
+
+parms <- as.data.frame(sens_Catm_Sobol$X)
+colnames(parms) <- c("k_o", "k_d", "v", "height")
+
+# Run the model for all parameter combinations
+res <- pmap_dbl(parms, Catm)
+
+# Give results to sobol object
+sens_Catm_Sobol <- sensitivity::tell(sens_Catm_Sobol, res, res.names = "Catm")
+```
+
+```{r}
+# Calculate and display sobol indices
+
+# First-order effects (main effects)
+row.names(sens_Catm_Sobol$S) <- colnames(parms)
+print("First-order sensitivity indices:")
+print(sens_Catm_Sobol$S)
+
+# Total effects (includes interactions)
+row.names(sens_Catm_Sobol$T) <- colnames(parms)
+print("Total effect sensitivity indices:")
+print(sens_Catm_Sobol$T)
+
+# Print full summary
+print(sens_Catm_Sobol)
+```
+
+```{r}
+# Combine parameters and results
+both <- cbind.data.frame(parms, Catm = sens_Catm_Sobol$y)
+
+# Histogram showing uncertainty in conductance
+ggplot(both, aes(x = Catm)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black") +
+  geom_vline(xintercept = mean(both$Catm), col = "red", linewidth = 1) +
+  labs(title = "Uncertainty in Atmospheric Conductance",
+       subtitle = "High windspeed, short vegetation setting",
+       x = "Conductance (mm/s)",
+       y = "Frequency") +
+  theme_minimal(base_size = 12)
+```
+
+```{r}
+# Plot conductance vs windspeed, colored by height (2nd most sensitive parameter) 
+ggplot(both, aes(x = v, y = Catm, color = height)) +
+  geom_point(alpha = 0.6) +
+  scale_color_viridis_c() +
+  labs(title = "Atmospheric Conductance vs Windspeed",
+       subtitle = "Colored by height (2nd most sensitive)",
+       x = "Windspeed (m/s)",
+       y = "Conductance (mm/s)",
+       color = "Height (m)") +
+  theme_minimal(base_size = 12)
+```
+
+```{r}
+# Calculate interaction effects (Total - First order)
+interactions <- sens_Catm_Sobol$T$original - sens_Catm_Sobol$S$original
+names(interactions) <- row.names(sens_Catm_Sobol$S)
+
+print("Interaction effects (Total - First order):")
+print(interactions)
+```
+
+## Discussion: Comparison with Class Setting
+
+This sensitivity analysis shows windspeed (v) dominates conductance uncertainty, with a first-order index of 0.82 (82%), far higher than the class setting where v contributed only 18%. This increased sensitivity results from higher v variability (SD = 50 vs 30 m/s) and mean (300 vs 250 m/s). k_d was the most sensitive parameter in class (55%), barely but contributes here (~5%), indicating that in shorter vegetation with higher windspeed, the direct effect of wind overwhelms turbulence parameters. Vegetation height is the second most sensitive parameter (first-order index = 0.22) in this setting, whereas it was essentially insensitive in the tall forest class setting (<1%). Interaction effects are fairly small (all < 0.06), indicating parameters act relatively independently.
