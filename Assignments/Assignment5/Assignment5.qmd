@@ -1,8 +1,14 @@
 ---
 title: "Sobol Sensitivity Analysis Assignment"
-author: "Emily Miller"
+author: "Your Name"
 date: today
-format: pdf
+format: 
+  html:
+    code-fold: false
+    toc: true
+    theme: cosmo
+  pdf:
+    toc: true
 ---
 
 # Part I: Paper Review
@@ -34,7 +40,7 @@ np <- 1000
 # Windspeed: higher and more variable than class (mean=300, sd=50)
 # Height: shorter vegetation (3.5-5.5m vs 9.5-10.5m in class)
 k_o <- rnorm(mean = 0.1, sd = 0.1 * 0.01, n = np)  # 1% SD
-k_d <- rnorm(mean = 0.7, sd = 0.7 * 0.01, n = np)  # 1% SD
+k_d <- rnorm(mean = 0.7, sd = 0.7 * 0.01, n = np)  # 1% SD  
 v <- rnorm(mean = 300, sd = 50, n = np)            # Higher, more variable
 height <- runif(min = 3.5, max = 5.5, n = np)      # Shorter vegetation
 
@@ -86,7 +92,7 @@ print(sens_Catm_Sobol)
 # Combine parameters and results
 both <- cbind.data.frame(parms, Catm = sens_Catm_Sobol$y)
 
-# Histogram showing uncertainty in conductance
+# Plot 1: Histogram showing uncertainty in conductance
 ggplot(both, aes(x = Catm)) +
   geom_histogram(bins = 50, fill = "skyblue", color = "black") +
   geom_vline(xintercept = mean(both$Catm), col = "red", linewidth = 1) +
@@ -98,15 +104,29 @@ ggplot(both, aes(x = Catm)) +
 ```
 
 ```{r}
-# Plot conductance vs windspeed, colored by height (2nd most sensitive parameter) 
-ggplot(both, aes(x = v, y = Catm, color = height)) +
+# Identify the top 2 most sensitive parameters by total effect
+sensitivity_ranking <- sens_Catm_Sobol$T %>%
+  as.data.frame() %>%
+  mutate(param = row.names(.)) %>%
+  arrange(desc(original))
+
+most_sensitive <- sensitivity_ranking$param[1]
+second_sensitive <- sensitivity_ranking$param[2]
+
+print(paste("Most sensitive parameter:", most_sensitive))
+print(paste("Second most sensitive parameter:", second_sensitive))
+```
+
+```{r}
+# Plot conductance vs windspeed, colored by 2nd most sensitive parameter
+ggplot(both, aes(x = v, y = Catm, color = .data[[second_sensitive]])) +
   geom_point(alpha = 0.6) +
   scale_color_viridis_c() +
   labs(title = "Atmospheric Conductance vs Windspeed",
-       subtitle = "Colored by height (2nd most sensitive)",
+       subtitle = paste("Colored by", second_sensitive, "(2nd most sensitive)"),
        x = "Windspeed (m/s)",
        y = "Conductance (mm/s)",
-       color = "Height (m)") +
+       color = second_sensitive) +
   theme_minimal(base_size = 12)
 ```
 
@@ -119,6 +139,3 @@ print("Interaction effects (Total - First order):")
 print(interactions)
 ```
 
-## Discussion: Comparison with Class Setting
-
-This sensitivity analysis shows windspeed (v) dominates conductance uncertainty, with a first-order index of 0.82 (82%), far higher than the class setting where v contributed only 18%. This increased sensitivity results from higher v variability (SD = 50 vs 30 m/s) and mean (300 vs 250 m/s). k_d was the most sensitive parameter in class (55%), barely but contributes here (~5%), indicating that in shorter vegetation with higher windspeed, the direct effect of wind overwhelms turbulence parameters. Vegetation height is the second most sensitive parameter (first-order index = 0.22) in this setting, whereas it was essentially insensitive in the tall forest class setting (<1%). Interaction effects are fairly small (all < 0.06), indicating parameters act relatively independently.
