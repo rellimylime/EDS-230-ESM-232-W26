@@ -7,6 +7,6 @@
 #' @return derivative of population with time
 
 dpopgrowth <- function(Time, P, parms) {
-  dP <- parms$r * P * (1 - P / parms$K)
+  dP <- parms$r * P * (1 - P / parms$K) - (parms$harv * P)
   return(list(dP))
 }
